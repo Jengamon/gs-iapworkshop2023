@@ -35,18 +35,19 @@ class LinearRegression(BaseModel):
 
 key = jrand.PRNGKey(0)
 
-def predict(W, b, inputs):
-    return jnp.dot(inputs, W.T) + b
+def predict(W, inputs):
+    return jnp.dot(inputs, W.T)
 
-# @jit
-def loss(W, b, points):
+@jit
+def loss(W, points, lamb):
     xs = points[:, 0]
     ys = points[:, 1]
-    pows = jnp.arange(0, W.shape[1]).reshape(W.shape[1], 1) + 1
-    x_pow = (xs[None, :] ** pows).reshape(xs.shape[0], -1)
-    print(x_pow.shape, x_pow)
-    preds = predict(W, b, x_pow)
-    return jnp.sum((preds - ys) ** 2)
+    pows = jnp.arange(0, W.shape[1]).reshape(W.shape[1], 1)
+    x_pow = (xs[None, :] ** pows).T
+    # print(x_pow.shape, x_pow)
+    preds = predict(W, x_pow)
+    # print(ys.reshape(-1, 1).shape, preds.shape)
+    return jnp.sum((preds - ys.reshape(-1, 1)) ** 2) + lamb * jnp.squeeze(jnp.dot(W, W.T))
 
 @app.post("/lr")
 async def linear_regression(data: LinearRegression):
@@ -55,24 +56,29 @@ async def linear_regression(data: LinearRegression):
     points = data.convert()
 
     # Degree determines size of theta
-    skey, Wkey, bkey = jrand.split(key, 3)
+    skey, Wkey = jrand.split(key)
     key = skey
-    W = jrand.normal(Wkey, (1, data.degree))
-    b = jrand.normal(bkey, ())
+    W = jrand.normal(Wkey, (1, data.degree + 1))
 
     # print(value_and_grad(loss)(jnp.array([[1.0]]), 0.0, points))
     err = jnp.inf
-    for _ in range(0, 100):
-        val, (Wgrad, bgrad) = value_and_grad(loss, (0, 1))(W, b, points)
-        W = W - 0.25/data.degree * Wgrad
-        b = b - 0.25/data.degree * bgrad
-        print(Wgrad, bgrad, err)
+    iters = 100_000
+    counter = 0
+    while err > 0.00001:
+        val, Wgrad = value_and_grad(loss)(W, points, 0)
+        W = W - 0.05 * Wgrad
+        err = jnp.dot(Wgrad, Wgrad.T) ** (1/2)
+        counter += 1
+        if counter > iters:
+            break
+        # print("gradup", Wgrad, err)
 
+    # print(W)
     points = []
-    pows = jnp.arange(0, W.shape[1]) + 1
+    pows = jnp.arange(0, W.shape[1])
     for i in jnp.linspace(0, 1, 300):
         x_pow = i ** pows
-        y = predict(W, b, x_pow)
+        y = predict(W, x_pow)
         points.append(Point(x = i * 300, y = y * 300))
 
     return points

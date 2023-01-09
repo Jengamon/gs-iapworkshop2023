@@ -40,6 +40,7 @@ function drawData() {
 }
 
 function _requestData() {
+    ctx.fillText("Loading...", 0, 300);
     // Request a linear regression, and then display it
     const body = {
         degree: degree.value,
