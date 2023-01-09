@@ -66,7 +66,7 @@ function _requestData() {
         .catch((err) => console.error(err));
 }
 
-const requestData = debounce(() => _requestData());
+const requestData = debounce(() => _requestData(), 600);
 
 degree.addEventListener("change", requestData);
 canvas.addEventListener("click", (ev) => {
