@@ -64,8 +64,9 @@ async def linear_regression(data: LinearRegression):
     err = jnp.inf
     iters = 100_000
     counter = 0
+    vg = value_and_grad(loss)
     while err > 0.00001:
-        val, Wgrad = value_and_grad(loss)(W, points, 0)
+        val, Wgrad = vg(W, points, 0)
         W = W - 0.05 * Wgrad
         err = jnp.dot(Wgrad, Wgrad.T) ** (1/2)
         counter += 1
